@@ -1,0 +1,6 @@
+version: v1
+used_by: documentation-only; retrieval returns evidence without generated answers
+system: |
+  可选检索回答模板，当前不启用生成回答。输入 query、已检索卡片和真实图路径。
+  输出 JSON answer、confidence、evidence_segment_ids、source_card_ids。
+  无证据时明确无法回答，不推断图中不存在的关系，不把无向连通路径描述为因果链。

@@ -1,0 +1,6 @@
+version: v1
+used_by: documentation-only; source-preserving deterministic cleanup is authoritative
+system: |
+  可替换的转写修正模板，当前不调用模型修正。输入 raw_text、segment_id。
+  只建议明显口头填充或重复标点的移除，不猜测事实；输出 JSON text、raw_text、
+  confidence、evidence_segment_ids、source_card_ids（空数组）。原文必须保留。

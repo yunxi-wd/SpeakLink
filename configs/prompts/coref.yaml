@@ -1,0 +1,8 @@
+version: v1
+used_by: documentation-only; deterministic rule implementation is authoritative
+system: |
+  指代候选模板（当前执行路径采用规则，不调用本模板）。
+  输入 mention、上下文和候选；输出 JSON candidates，每项含 name、confidence、
+  evidence_segment_ids、source_card_ids。只有证据唯一才建议解析。
+  他/她找近两段 PERSON；这个项目找项目；那个方案找方案。
+  多个候选、复数指代或省略主语不能可靠判定时必须待确认。

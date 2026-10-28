@@ -1,0 +1,4 @@
+# Speech-only runtime; does not install the optional embedding/LLM stack.
+faster-whisper>=1.1,<2
+# PyAV 19 removes metadata_errors, still passed by faster-whisper 1.2.1.
+av>=11,<17

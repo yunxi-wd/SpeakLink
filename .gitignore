@@ -1,0 +1,30 @@
+# Local secrets and user content
+.env
+.env.*
+!.env.example
+data/
+*.wav
+*.mp3
+*.m4a
+*.webm
+*.sqlite*
+*.db
+*.log
+# Downloaded runtimes, models and generated output
+runtime/
+models/
+node_modules/
+.next/
+web/
+upgrade-backups/
+.group-update/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.tsbuildinfo
+work/
+test-results/
+playwright-report/
+.venv/
+.idea/
+.vscode/

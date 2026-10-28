@@ -1,0 +1,17 @@
+app_name: 说话即记
+llm_provider: demo
+llm_url: http://localhost:11434
+llm_model: qwen2.5:7b
+embedding_provider: hash
+embedding_model: BAAI/bge-small-zh-v1.5
+confidence_threshold: 0.75
+asr_model: small
+asr_device: cpu
+max_upload_mb: 100
+prompt_version: v1
+agents:
+  max_revisions: 2
+  max_model_calls: 9
+  summary: {}
+  extractor: {}
+  reviewer: {}

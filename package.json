@@ -1,0 +1,9 @@
+{
+  "name": "speaklink",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose up --build",
+    "test": "python -m pytest backend/tests && pnpm --dir frontend test",
+    "demo": "python scripts/seed_demo.py"
+  }
+}

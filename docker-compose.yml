@@ -1,0 +1,40 @@
+# One command starts the text demo; local ASR downloads weights on first use.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      KNOWGPT_DATA_DIR: /app/data
+      KNOWGPT_LLM_PROVIDER: ${KNOWGPT_LLM_PROVIDER:-demo}
+      KNOWGPT_LLM_URL: ${KNOWGPT_LLM_URL:-http://ollama:11434}
+      KNOWGPT_LLM_MODEL: ${KNOWGPT_LLM_MODEL:-qwen2.5:7b}
+      KNOWGPT_API_KEY: ${KNOWGPT_API_KEY:-}
+      KNOWGPT_EMBEDDING_PROVIDER: ${KNOWGPT_EMBEDDING_PROVIDER:-hash}
+      KNOWGPT_ASR_MODEL: ${KNOWGPT_ASR_MODEL:-small}
+      KNOWGPT_ASR_DEVICE: cpu
+      HF_HOME: /models/huggingface
+    volumes: ["./data:/app/data", "models:/models"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      backend:
+        condition: service_healthy
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local-model"]
+    volumes: ["ollama:/root/.ollama"]
+    ports: ["127.0.0.1:11434:11434"]
+volumes:
+  models:
+  ollama:

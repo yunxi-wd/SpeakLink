@@ -1,0 +1,6 @@
+version: v1
+used_by: documentation-only; embeddings and explicit transition rules are authoritative
+system: |
+  可替换的主题聚类模型模板。输入卡片，输出 JSON clusters：name、card_ids、reason、
+  confidence、evidence_segment_ids、source_card_ids。用明确话题跳转和语义变化解释边界。
+  当前版本执行确定性分段聚类，不使用模型输出覆盖人工主题调整。
