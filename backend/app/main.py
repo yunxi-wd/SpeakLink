@@ -16,6 +16,8 @@ from .models.database import transaction, get, put, rows, load_snapshot, save_sn
 from .schemas.domain import Session, Snapshot, TranscriptSegment, Card, TopicCluster, Correction, QueryLog, Export, now
 from .schemas.api import CreateSession, TranscriptInput, SearchRequest, SearchResult, CorrectionInput, EntityPatch, RelationPatch, Health, Graph
 from .schemas.agents import AgentRun, AgentEvent, RunDetail
+from .schemas.api import TranscriptionProgress
+from .services import transcription_progress
 from .services.common import stable_id
 from .services import asr, pipeline, corrections, graph_store, search as retrieval, export as exporting
 
@@ -150,16 +152,32 @@ def transcribe(sid: str) -> Snapshot:
             raise HTTPException(409, "已处理记录不能重新转写")
         if not snap.session.audio_path:
             raise HTTPException(422, "请先上传音频")
-    snap.segments = asr.transcribe(snap.session.audio_path, sid, snap.session.language)
-    if not snap.segments:
-        raise HTTPException(422, "未检测到语音")
-    snap.session.duration_ms = max(s.end_ms for s in snap.segments)
-    snap.session.status = "transcribed"
-    with transaction(True) as conn:
-        if load_snapshot(conn, sid).revision != snap.revision:
-            raise pipeline.RevisionConflict("source changed during ASR")
-        save_snapshot(conn, snap)
+    if not transcription_progress.begin(sid):
+        raise HTTPException(409, "该记录正在转写，请等待当前任务完成")
+    try:
+        snap.segments = asr.transcribe(snap.session.audio_path, sid, snap.session.language,
+            lambda stage, done, total, count: transcription_progress.update(sid, stage, done, total, count))
+        if not snap.segments:
+            raise HTTPException(422, "未检测到语音")
+        transcription_progress.update(sid, 'saving')
+        snap.session.duration_ms = max(s.end_ms for s in snap.segments)
+        snap.session.status = "transcribed"
+        with transaction(True) as conn:
+            if load_snapshot(conn, sid).revision != snap.revision:
+                raise pipeline.RevisionConflict("source changed during ASR")
+            save_snapshot(conn, snap)
+        transcription_progress.update(sid, 'completed')
         return snap
+    except Exception:
+        transcription_progress.fail(sid)
+        raise
+
+@app.get("/api/sessions/{sid}/transcription-progress", response_model=TranscriptionProgress)
+def asr_progress(sid: str) -> TranscriptionProgress:
+    """Read telemetry independently while the synchronous ASR request is executing."""
+    with transaction() as conn:
+        get(conn, "sessions", sid)
+    return transcription_progress.read(sid)
 
 @app.post("/api/sessions/{sid}/process", response_model=Snapshot)
 def process(sid: str) -> Snapshot:

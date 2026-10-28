@@ -1,6 +1,6 @@
 """CPU/GPU faster-whisper transcription with VAD and source-preserving cleanup."""
 from functools import lru_cache
-from typing import Any
+from typing import Any, Callable
 import math
 import re
 from ..core.config import settings
@@ -26,13 +26,27 @@ def model() -> Any:
     except Exception as exc:
         raise RuntimeError("语音模型加载失败。请先运行语音环境安装脚本下载模型，再重试转写；已上传音频仍保留。") from exc
 
-def transcribe(path: str, sid: str, language: str) -> list[TranscriptSegment]:
+def transcribe(path: str, sid: str, language: str,
+               progress: Callable[[str, int, int, int], None] | None = None) -> list[TranscriptSegment]:
     """Convert an uploaded recording into final timestamped segments using local VAD."""
+    if progress:
+        progress('loading_model', 0, 0, 0)
     engine = model()
     try:
-        results, _ = engine.transcribe(path, language=language, vad_filter=True, word_timestamps=True, beam_size=5,
+        if progress:
+            progress('reading_audio', 0, 0, 0)
+        results, info = engine.transcribe(path, language=language, vad_filter=True, word_timestamps=True, beam_size=5,
                                       initial_prompt="以下是普通话录音，请使用简体中文。" if language == "zh" else None,
                                       condition_on_previous_text=False)
-        return [TranscriptSegment(id=stable_id(sid, "segment", i), session_id=sid, start_ms=round(s.start * 1000), end_ms=round(s.end * 1000), raw_text=s.text.strip(), text=clean_text(s.text), confidence=min(1, math.exp(s.avg_logprob))) for i, s in enumerate(results) if s.text.strip()]
+        duration = max(0, round(getattr(info, 'duration', 0) * 1000))
+        if progress:
+            progress('recognizing', 0, duration, 0)
+        segments = []
+        for i, s in enumerate(results):
+            if s.text.strip():
+                segments.append(TranscriptSegment(id=stable_id(sid, "segment", i), session_id=sid, start_ms=round(s.start * 1000), end_ms=round(s.end * 1000), raw_text=s.text.strip(), text=clean_text(s.text), confidence=min(1, math.exp(s.avg_logprob))))
+            if progress:
+                progress('recognizing', max(0, round(s.end * 1000)), duration, len(segments))
+        return segments
     except (ValueError, EOFError) as exc:
         raise ValueError("无法读取音频内容，请上传完整且可播放的 WAV、MP3 或 WebM 文件。") from exc

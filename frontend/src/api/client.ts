@@ -13,6 +13,25 @@ export interface AgentRun { id: string; session_id: string; status: 'queued'|'ru
 export interface ReviewIssue { target_id: string; target_type: string; verdict: string; reason: string; confidence: number; evidence_segment_ids: string[]; source_card_ids: string[] }
 export interface AgentEvent { id: string; role: string; attempt: number; provider: string; model: string; status: string; output: Record<string, unknown>; error: string|null; duration_ms: number; sequence: number }
 export interface RunDetail { run: AgentRun; events: AgentEvent[] }
+export interface TranscriptionProgress { stage: 'idle'|'loading_model'|'reading_audio'|'recognizing'|'saving'|'completed'|'failed'; message: string; percent: number|null; processed_ms: number; duration_ms: number; segments_count: number }
+
+/** Upload byte progress comes from the browser's network events, not a timer. */
+export function uploadAudio(sessionId: string, file: File, onProgress: (percent: number | null) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest(), form = new FormData();
+    form.append('file', file);
+    xhr.open('POST', `/api/sessions/${sessionId}/audio`);
+    xhr.upload.onprogress = event => onProgress(event.lengthComputable ? Math.round(event.loaded / event.total * 100) : null);
+    xhr.onerror = () => reject(new Error('音频上传连接中断，请检查本地服务后重试。'));
+    xhr.onabort = () => reject(new Error('音频上传已取消。'));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) { onProgress(100); resolve(); return; }
+      try { const error = JSON.parse(xhr.responseText); reject(new Error(typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail))); }
+      catch { reject(new Error(`上传失败（${xhr.status}）`)); }
+    };
+    xhr.send(form);
+  });
+}
 
 /** Fetch validated server state; never synthesize graph facts in the browser. */
 export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {

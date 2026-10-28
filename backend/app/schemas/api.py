@@ -3,6 +3,15 @@ from typing import Any, Literal
 from pydantic import Field
 from .domain import Schema, Snapshot, Card, Relation, EntityType, RelationType
 
+class TranscriptionProgress(Schema):
+    """Observed ASR stage and audio coverage; percent is absent before duration is known."""
+    stage: Literal['idle', 'loading_model', 'reading_audio', 'recognizing', 'saving', 'completed', 'failed'] = 'idle'
+    message: str = '尚未开始转写'
+    percent: int | None = Field(default=None, ge=0, le=100)
+    processed_ms: int = Field(default=0, ge=0)
+    duration_ms: int = Field(default=0, ge=0)
+    segments_count: int = Field(default=0, ge=0)
+
 class CreateSession(Schema):
     """Create an empty local recording."""
     title: str = Field(default="未命名速记", min_length=1, max_length=200)
