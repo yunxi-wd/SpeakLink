@@ -34,7 +34,7 @@ def embed(texts: list[str]) -> np.ndarray:
 
 def documents(snap: Snapshot) -> list[dict]:
     """Build index records with provenance mapping back to cards."""
-    docs = [{"id": c.id, "text": c.content, "card_ids": [c.id]} for c in snap.cards if c.status != "deleted"]
+    docs = [{"id": c.id, "text": c.title + '\n' + c.content, "card_ids": [c.id]} for c in snap.cards if c.status != "deleted"]
     docs += [{"id": e.id, "text": " ".join([e.name, *e.aliases]), "card_ids": e.source_card_ids} for e in snap.entities if e.status == "active"]
     entities = {e.id: e for e in snap.entities}
     segments = {s.id: s.text for s in snap.segments}

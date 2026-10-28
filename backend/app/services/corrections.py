@@ -1,6 +1,7 @@
 """Human-first replayable correction operations and strict projection validation."""
 from typing import Any
 from ..schemas.domain import Snapshot, Entity, Relation, Card, TopicCluster
+from ..schemas.api import CardPatch
 from .common import stable_id
 from .convergence import reconcile
 
@@ -20,6 +21,12 @@ def apply(snap: Snapshot, target_type: str, target_id: str, action: str, payload
     if action == "update":
         if not payload or set(payload) - EDITABLE[target_type]:
             raise ValueError("包含不可编辑字段或空修改")
+        if target_type == 'card':
+            editable_text = {k: v for k, v in payload.items() if k in {'title', 'content', 'card_type'}}
+            if any(value is None for value in editable_text.values()):
+                raise ValueError('卡片标题、正文和类型不能设为空值')
+            checked = CardPatch(expected_revision=snap.revision, **editable_text)
+            payload = payload | checked.model_dump(exclude_unset=True, exclude={'expected_revision'})
         changed = target.model_dump() | payload
         if target_type=='cluster':changed['reason']='manual: 用户调整主题'
         if target_type == 'relation' and 'type' in payload:

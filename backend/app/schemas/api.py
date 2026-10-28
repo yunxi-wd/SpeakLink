@@ -1,6 +1,6 @@
 """Request and response schemas for all public JSON endpoints."""
 from typing import Any, Literal
-from pydantic import Field
+from pydantic import Field, field_validator
 from .domain import Schema, Snapshot, Card, Relation, EntityType, RelationType
 
 class TranscriptionProgress(Schema):
@@ -57,6 +57,23 @@ class EntityPatch(Schema):
     name: str | None = Field(default=None, min_length=1)
     type: EntityType | None = None
     status: Literal["active", "pending"] | None = None
+
+class CardPatch(Schema):
+    """Audited card text/type edits; source references and graph IDs are immutable."""
+    expected_revision: int = Field(ge=0)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    content: str | None = Field(default=None, min_length=1, max_length=10000)
+    card_type: Literal['topic', 'conclusion', 'todo', 'uncertain'] | None = None
+
+    @field_validator('title', 'content')
+    @classmethod
+    def nonblank(cls, value: str | None) -> str | None:
+        """Reject whitespace-only edits while preserving paragraph formatting."""
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError('标题和正文不能只包含空白字符')
+        return value
 
 class RelationPatch(Schema):
     """Editable relation fields and concurrency revision."""

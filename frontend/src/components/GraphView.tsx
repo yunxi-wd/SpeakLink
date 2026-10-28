@@ -3,6 +3,7 @@
 import {useEffect,useRef,useState} from 'react';
 import cytoscape,{Core,ElementDefinition} from 'cytoscape';
 import {api,type Snapshot} from '@/api/client';
+import EntityEditor from './EntityEditor';
 import {useStore} from '@/store/useStore';
 type Node=Snapshot['entities'][number]&{group_id:string;group_name:string;group_color:string};
 type Edge=Snapshot['relations'][number]&{cross_group:boolean};
@@ -23,13 +24,15 @@ export function groupElements(graph:GroupGraph,selected:string|null,neighbors:bo
 }
 
 /** Render groups as reading aids; group arrows always unfold to real entity assertions. */
-export default function GraphView({snap}:{snap:Snapshot}){
+export default function GraphView({snap,onChange,readOnly=false}:{snap:Snapshot;onChange?:(s:Snapshot)=>void;readOnly?:boolean}){
+  const [editingEntity,setEditingEntity]=useState(false);
   const canvas=useRef<HTMLDivElement>(null),cy=useRef<Core|null>(null);
   const [graph,setGraph]=useState<GroupGraph|null>(null),[error,setError]=useState(''),[mode,setMode]=useState('knowledge');
   const [group,setGroup]=useState<string|null>(null),[neighbors,setNeighbors]=useState(true),[overview,setOverview]=useState(false),[onlyBridges,setOnlyBridges]=useState(false);
   const [query,setQuery]=useState(''),[type,setType]=useState(''),[focus,setFocus]=useState<string|null>(null),[expanded,setExpanded]=useState(true);
   const [relationId,setRelationId]=useState<string|null>(null),[bridgeId,setBridgeId]=useState<string|null>(null);
   const {selectedEntity,selectedCard,selectEntity,selectCard,pathIds}=useStore();
+  const selectedNode=snap.entities.find(e=>e.id===selectedEntity&&e.status!=='deleted');
   const bridge=graph?.group_relations.find(b=>b.id===bridgeId),relation=snap.relations.find(r=>r.id===relationId);
   const names=new Map(snap.entities.map(e=>[e.id,e.name])),groupNames=new Map(graph?.groups.map(g=>[g.id,g.name])||[]);
   useEffect(()=>{let alive=true;setGraph(null);setError('');setGroup(null);setRelationId(null);setBridgeId(null);api<GroupGraph>(`/sessions/${snap.session.id}/graph?mode=${mode}`).then(g=>{if(alive){if(g.revision===snap.revision)setGraph(g);else setError('记录已更新，请刷新图谱。');}}).catch(e=>alive&&setError(String(e)));return()=>{alive=false;};},[snap.session.id,snap.revision,mode]);
@@ -54,6 +57,7 @@ export default function GraphView({snap}:{snap:Snapshot}){
     <div className="graph-tools"><button onClick={()=>setExpanded(!expanded)}>{expanded?'并排查看卡片':'展开大图'}</button><button onClick={()=>setOverview(!overview)}>{overview?'展开实体':'组间总览'}</button><button aria-label="放大图谱" onClick={()=>cy.current?.zoom(cy.current.zoom()*1.2)}>＋</button><button aria-label="缩小图谱" onClick={()=>cy.current?.zoom(cy.current.zoom()/1.2)}>−</button><input aria-label="搜索定位节点" placeholder="搜索定位节点…" value={query} onChange={e=>setQuery(e.target.value)}/><select aria-label="节点类型" value={type} onChange={e=>setType(e.target.value)}><option value="">所有类型</option>{['PERSON','ORG','CONCEPT','EVENT','TIME','LOCATION','OTHER'].map(t=><option key={t}>{t}</option>)}</select><button disabled={!selectedEntity||overview} onClick={()=>setFocus(selectedEntity)}>邻域</button><button onClick={reset}>全图</button></div>
     <div className="group-options"><label><input type="checkbox" checked={onlyBridges} onChange={e=>setOnlyBridges(e.target.checked)}/> 只看组间关系</label><label><input type="checkbox" checked={neighbors} onChange={e=>setNeighbors(e.target.checked)}/> 选组时保留跨组连接实体</label></div>
     <div className="relationship-groups" aria-label="关系分组"><button aria-pressed={!group} onClick={()=>{setGroup(null);setQuery('');setFocus(null);}}>全部关系组</button>{graph?.groups.map(g=><button key={g.id} aria-pressed={group===g.id} onClick={()=>{setGroup(g.id);setQuery('');setType('');setFocus(null);}}><i style={{background:g.color}}/>{g.name}<span>{g.entity_ids.length}</span></button>)}</div>
+    {selectedNode&&onChange&&<section className="selected-entity-panel" aria-label="选中实体详情"><div><strong>{selectedNode.name}</strong><span className="muted"> · 图谱实体</span><button className="edit-card-button" disabled={readOnly} onClick={()=>setEditingEntity(v=>!v)}>{editingEntity?'收起编辑':'编辑实体'}</button></div>{editingEntity&&<EntityEditor key={selectedNode.id} entity={selectedNode} snap={snap} disabled={readOnly} onCancel={()=>setEditingEntity(false)} onSaved={s=>{onChange(s);setEditingEntity(false);}}/>}</section>}
     <div ref={canvas} className="graph-canvas" data-testid="graph-canvas"/>
     <div className="graph-footer"><span>拖拽节点 · 滚轮缩放 · 点击连线查看证据</span><span>{graph?.edges.length||0} 条实体关系 · {graph?.groups.length||0} 个主题组</span></div>
     <details className="group-bridges" open><summary>有证据的组间关系 · {graph?.group_relations.length||0}</summary><p className="muted">组间箭头汇总具体实体关系，不表示两组中每个实体都相互关联。</p><div className="relation-list">{graph?.group_relations.map(b=><button key={b.id} aria-pressed={bridgeId===b.id} onClick={()=>{setBridgeId(b.id);setRelationId(null);}}>{groupNames.get(b.source)} → {b.label} → {groupNames.get(b.target)}（{b.relation_ids.length} 条实体关系）</button>)}</div>{graph&&!graph.group_relations.length&&<p>当前没有已确认的跨组关系。未明确说出的关系不会自动补线。</p>}</details>

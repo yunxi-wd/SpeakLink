@@ -16,7 +16,7 @@ from .models.database import transaction, get, put, rows, load_snapshot, save_sn
 from .schemas.domain import Session, Snapshot, TranscriptSegment, Card, TopicCluster, Correction, QueryLog, Export, now
 from .schemas.api import CreateSession, TranscriptInput, SearchRequest, SearchResult, CorrectionInput, EntityPatch, RelationPatch, Health, Graph
 from .schemas.agents import AgentRun, AgentEvent, RunDetail
-from .schemas.api import TranscriptionProgress
+from .schemas.api import TranscriptionProgress, CardPatch
 from .services import transcription_progress
 from .services.common import stable_id
 from .services import asr, pipeline, corrections, graph_store, search as retrieval, export as exporting
@@ -294,6 +294,15 @@ def patch_entity(eid: str, body: EntityPatch) -> Snapshot:
     with transaction() as conn:
         entity = get(conn, "entities", eid)
     return correct(CorrectionInput(session_id=entity["session_id"], target_type="entity", target_id=eid, action="update", payload=body.model_dump(exclude_none=True, exclude={"expected_revision"}), expected_revision=body.expected_revision))
+
+@app.patch("/api/cards/{cid}", response_model=Snapshot)
+def patch_card(cid: str, body: CardPatch) -> Snapshot:
+    """Save a card edit through the shared revision, audit, replay and rollback path."""
+    with transaction() as conn:
+        card = get(conn, 'cards', cid)
+    payload = body.model_dump(exclude_unset=True, exclude={'expected_revision'})
+    return correct(CorrectionInput(session_id=card['session_id'], target_type='card', target_id=cid,
+        action='update', payload=payload, expected_revision=body.expected_revision))
 
 @app.patch("/api/relations/{rid}", response_model=Snapshot)
 def patch_relation(rid: str, body: RelationPatch) -> Snapshot:

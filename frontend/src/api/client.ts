@@ -2,7 +2,7 @@
 export interface Session { id: string; title: string; created_at: string; status: string; audio_path?: string | null; metadata: Record<string, unknown> }
 export interface Health { asr_installed: boolean; asr_model: string; asr_message: string }
 export interface Segment { id: string; text: string; raw_text: string; start_ms: number; end_ms: number; speaker: string | null }
-export interface Card { id: string; title: string; content: string; card_type: string; confidence: number; status: string; source_segment_ids: string[]; entity_ids: string[]; relation_ids: string[]; cluster_id: string | null }
+export interface Card { id: string; title: string; content: string; card_type: string; confidence: number; status: string; source_segment_ids: string[]; entity_ids: string[]; relation_ids: string[]; cluster_id: string | null; manual_edited?: boolean }
 export interface Entity { id: string; name: string; type: string; status: string; confidence: number; source_card_ids: string[]; source_segment_ids: string[]; cluster_id: string | null }
 export interface Relation { id: string; head_entity_id: string; tail_entity_id: string; predicate?: string | null; type: string; status: string; evidence_card_ids: string[]; confidence: number; source_segment_ids: string[] }
 export interface Cluster { id: string; name: string; color: string; reason: string; card_ids: string[]; entity_ids: string[] }
